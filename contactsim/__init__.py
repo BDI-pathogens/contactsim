@@ -4,4 +4,4 @@
 #  SPDX-License-Identifier: Apache-2.0
 #
 
-__all__ = ["contactsim"]
+__all__ = ["contactsim","animation"]

@@ -171,7 +171,7 @@ class Simulation:
 
     For an example, look at the `examples` folder, or execute this module directly. Output is generated in the `./output` folder.
     """
-    def __init__(self, actors, frequency, maxEffectRange, minX, maxX, minY, maxY, meetingDurationMean = 0, meetingDurationSd = 0, meetingDistanceMean = 0, meetingDistanceSd = 0, meetingChance = 0, meetingMaxRange = 3):
+    def __init__(self, actors, frequency, maxEffectRange, minX, maxX, minY, maxY, meetingDurationMean = 0, meetingDurationSd = 0, meetingDistanceMean = 0, meetingDistanceSd = 0, meetingChance = 0, meetingMaxRange = 3, recordPositions = False):
         """
         Creates a simulation instance.
 
@@ -204,6 +204,7 @@ class Simulation:
             meetingDistanceSd:      float (default 0) The standard deviation of the meeting distance.
             meetingChange:          float (default 0 - disables meetings) The probability that a meeting will occur at each tick of the simulation, if distance <= meeting distance selected from the distance duration.
             meetingMaxRange:        float (default 3m) The maximum range a human to human meeting can occur, in metres. Does not effect maxEffectRange (which is instead the transmission detection distance).
+            recordPositions:        Boolean (default False) Whether to record the positions and state of each actor over time
         """
         self.actors = actors
         self.radioFrequency = frequency
@@ -225,6 +226,8 @@ class Simulation:
         self.meetingDistanceSd = meetingDistanceSd
         self.meetingChance = meetingChance
         self.meetingMaxRange = meetingMaxRange
+        self.recordPositions = recordPositions
+        self.actorStateOverTime = []
 
     def addActor(self, newActor):
         """
@@ -346,7 +349,28 @@ class Simulation:
 
                             # Save value into data store
                             self.readings.append((self.time, actorRx.id, actorTx.id, powerRx, actorRx.deviceModel, actorTx.deviceModel))
+        
+        if (self.recordPositions):
+            for actor in self.actors:
+                inMeeting = False
+                if self.isInMeeting(actor.id, self.time):
+                    inMeeting = True
+                self.actorStateOverTime.append((self.time,actor.id,actor.x,actor.y,actor.angle,actor.speed,inMeeting))
 
+    def getActorStatesOverTimeAsDataFrame(self):
+        """
+        Returns the recorded actor state as a Pandas DataFrame.
+        
+        Note: Requires the simulation to have been created with recordPositions=True
+        """
+        return pd.DataFrame(data=self.actorStateOverTime,
+                            columns=['time','actorId','x','y','angle','speed','inMeeting'])
+
+    def clearActorStates(self):
+        """
+        Deletes the actor state recordings up to now. Doesn't affect actors' current states.
+        """
+        self.actorStateOverTime = []
 
 def txPowerNamer(actorToName):
     """

@@ -16,7 +16,7 @@ import pandas as pd
 
 # import contactsim.contactsim as contactsim
 from contactsim.contactsim import generateActors,Simulation
-
+from contactsim.animation import animateActorsOverTime
 
 # Declare general defaults now
 
@@ -48,12 +48,13 @@ np.random.seed(19680801)
 
 
 @arguably.command
-def baselineFixedTxPower(meanPower=13):
+def baselineFixedTxPower(meanPower=13,*,animate=False):
     """
     This function runs a simulation with each phone TxPower set to a fixed value of 13 dBm
 
     Args:
         meanPower: int Mean txpower (defaults to 13)
+        animate: [-a] Boolean Whether to show a movement animation (Defaults to False)
     """
 
     # Generate our initial actors
@@ -64,7 +65,7 @@ def baselineFixedTxPower(meanPower=13):
     extraActors = generateActors(extraActorsCount, meanSpeed, txPowerMethod="fixed", meanTxPower=meanPower)
 
     # Run the simulation for 100 seconds at 0.1 second increments (10000 steps)
-    sim = Simulation(actors, frequency, maxRange, -simRadius, simRadius,-simRadius,simRadius)
+    sim = Simulation(actors, frequency, maxRange, -simRadius, simRadius,-simRadius,simRadius,recordPositions=animate)
     for i in range(maxSteps):
         print(f"Simulation step {i + 1}, with actor count: {len(sim.actors)}")
         # Add extra actors
@@ -79,17 +80,23 @@ def baselineFixedTxPower(meanPower=13):
     # The below takes time because of the use of float_format to make the time look sensible
     if (meanPower != 13):
         df.to_csv(f"./output/sim-baselineFixedTxPower{meanPower}.csv", index=False) #, float_format='%.3f')
+        if animate:
+            animateActorsOverTime(sim.getActorStatesOverTimeAsDataFrame(),f"./output/sim-baselineFixedTxPower{meanPower}.mp4")
     else:
         df.to_csv("./output/sim-baselineFixedTxPower.csv", index=False) #, float_format='%.3f')
+        if animate:
+            animateActorsOverTime(sim.getActorStatesOverTimeAsDataFrame(),"./output/sim-baselineFixedTxPower.mp4")
+
 
 
 
 @arguably.command
-def baselineGaussianTxPower():
+def baselineGaussianTxPower(*,animate=False):
     """
     This function runs a simulation with each phone TxPower set to a gaussian selected from mean=13,sd=4
 
     Args:
+        animate: [-a] Whether to generate an animate (Default: False)
     """
     # Change any standard settings
     simDurationSeconds = 4800
@@ -104,7 +111,7 @@ def baselineGaussianTxPower():
     extraActors = generateActors(extraActorsCount, meanSpeed, txPowerMethod="gaussian", meanTxPower=13)
 
     # Run the simulation for 100 seconds at 0.1 second increments (10000 steps)
-    sim = Simulation(actors, frequency, maxRange, -simRadius, simRadius,-simRadius,simRadius)
+    sim = Simulation(actors, frequency, maxRange, -simRadius, simRadius,-simRadius,simRadius,recordPositions=animate)
     for i in range(maxSteps):
         print(f"Simulation step {i + 1}, with actor count: {len(sim.actors)}")
         # Add extra actors
@@ -118,17 +125,20 @@ def baselineGaussianTxPower():
 
     # The below takes time because of the use of float_format to make the time look sensible
     df.to_csv("./output/sim-baselineGaussianTxPower.csv", index=False) #, float_format='%.3f')
+    if animate:
+        animateActorsOverTime(sim.getActorStatesOverTimeAsDataFrame(),"./output/sim-baselineGaussianTxPower.mp4")
 
 
 
 @arguably.command
-def higherSensitivity(sensitivity=10):
+def higherSensitivity(sensitivity=10,*,animate=False):
     """
     This function runs a simulation with each phone TxPower set to a gaussian selected from mean=13,sd=4
     but with receive sensitivity (rxGain) set higher, at 10 instead of 1.5.
 
     Args:
         sensitivity: int The fixed sensitivity to use (defaults to 10)
+        animate: [-a] Whether to generate an animate (Default: False)
     """
     # Change any standard settings
     simDurationSeconds = 4800
@@ -149,7 +159,7 @@ def higherSensitivity(sensitivity=10):
                             rxSensitivityMethod="fixed", meanRxSensitivity=sensitivity, namer=rxGainNamer)
 
     # Run the simulation for 100 seconds at 0.1 second increments (10000 steps)
-    sim = Simulation(actors, frequency, maxRange, -simRadius, simRadius,-simRadius,simRadius)
+    sim = Simulation(actors, frequency, maxRange, -simRadius, simRadius,-simRadius,simRadius,recordPositions=animate)
     for i in range(maxSteps):
         print(f"Simulation step {i + 1}, with actor count: {len(sim.actors)}")
         # Add extra actors
@@ -164,19 +174,24 @@ def higherSensitivity(sensitivity=10):
     # The below takes time because of the use of float_format to make the time look sensible
     if (sensitivity != 10):
         df.to_csv(f"./output/sim-higherSensitivity{sensitivity}.csv", index=False)
+        if animate:
+            animateActorsOverTime(sim.getActorStatesOverTimeAsDataFrame(),f"./output/sim-higherSensitivity{sensitivity}.mp4")
     else:
         df.to_csv("./output/sim-higherSensitivity.csv", index=False) #, float_format='%.3f')
+        if animate:
+            animateActorsOverTime(sim.getActorStatesOverTimeAsDataFrame(),"./output/sim-higherSensitivity.mp4")
 
 
 @arguably.command
-def baselineMeetings():
+def baselineMeetings(*, animate = False):
     """
     This function runs a simulation with each phone TxPower set to a gaussian selected from mean=13,sd=4 with meeting mean duration 5 minutes, sd 1 minute, distance of 1.5m sd 0.3m.
 
     Args:
+        animate: [-a] Whether to generate an animate (Default: False)
     """
     # Change any standard settings
-    simDurationSeconds = 960 # was 960
+    simDurationSeconds = 320 #960 # was 960
     stepSizeSeconds = 1 # was 0.2
     newActorsPerTimeStep = 1
     simDurationSteps = simDurationSeconds / stepSizeSeconds
@@ -186,7 +201,8 @@ def baselineMeetings():
     meetingMaxRange = 2.3 # was 15
 
     # Generate our initial actors
-    actors = generateActors(actorCount, meanSpeed, txPowerMethod="gaussian", meanTxPower=13)
+    # actors = generateActors(actorCount, meanSpeed, txPowerMethod="gaussian", meanTxPower=13)
+    actors = generateActors(newActorsPerTimeStep, meanSpeed, txPowerMethod="gaussian", meanTxPower=13)
 
     # calculate actors to introduce each time step
     extraActorsCount = newActorsPerTimeStep * maxSteps
@@ -197,7 +213,8 @@ def baselineMeetings():
                      meetingDurationMean = 5*60, meetingDurationSd = 2*60, 
                      meetingDistanceMean = 1.5, meetingDistanceSd = 0.3, 
                      meetingChance = 0.9,
-                     meetingMaxRange = meetingMaxRange) 
+                     meetingMaxRange = meetingMaxRange,
+                     recordPositions=animate) 
     for i in range(maxSteps):
         print(f"Simulation step {i + 1}, with actor count: {len(sim.actors)}")
         # Add extra actors
@@ -211,6 +228,8 @@ def baselineMeetings():
 
     # The below takes time because of the use of float_format to make the time look sensible
     df.to_csv("./output/sim-baselineMeetings.csv", index=False) #, float_format='%.3f')
+    if animate:
+        animateActorsOverTime(sim.getActorStatesOverTimeAsDataFrame(),"./output/sim-baselineMeetings.mp4")
 
     # Now sanity check the meetings output of the simulation
     meetingData = []
