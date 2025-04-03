@@ -18,7 +18,7 @@ class Actor:
     """
     The Actor class represents a person moving in an environment. (More correctly, a mobile device at a consistent location on that person)
     """
-    def __init__(self, id, powerTransmitter, gainTransmitter, gainReceiver, deviceModel="model001"):
+    def __init__(self, id, powerTransmitter, gainTransmitter, gainReceiver, sensitivity = None, deviceModel="model001"):
         """
         Creates a new Actor instance.
         
@@ -32,6 +32,7 @@ class Actor:
         self.powerTx = powerTransmitter # dBm
         self.gainTx = gainTransmitter # dBm
         self.gainRx = gainReceiver # dBm
+        self.sensitivity = sensitivity # dBm Also called Rx Power when calculating Link Budget
         self.x = 0 # m
         self.y = 0 # m
         self.angle = 0 # radians
@@ -347,8 +348,13 @@ class Simulation:
                             # Calculate mutual powerReceiver
                             powerRx = actorRx.powerReceiver(self.wavelength,range,actorTx.powerTx,actorTx.gainTx)
 
-                            # Save value into data store
-                            self.readings.append((self.time, actorRx.id, actorTx.id, powerRx, actorRx.deviceModel, actorTx.deviceModel))
+                            heard = True
+                            if None != actorRx.sensitivity:
+                                heard = (actorRx.sensitivity <= powerRx)
+
+                            if heard:
+                                # Save value into data store
+                                self.readings.append((self.time, actorRx.id, actorTx.id, powerRx, actorRx.deviceModel, actorTx.deviceModel))
         
         if (self.recordPositions):
             for actor in self.actors:
@@ -385,11 +391,11 @@ def noneNamer(actorToName):
     """
     pass
 
-def generateActors(actorCount, meanSpeed, txPowerMethod="fixed", meanTxPower=13, txGainMethod="fixed",meanTxGain=1.5, rxSensitivityMethod="fixed",meanRxSensitivity=1.5, namer = txPowerNamer):
+def generateActors(actorCount, meanSpeed, txPowerMethod="fixed", meanTxPower=13, txGainMethod="fixed",meanTxGain=1.5, rxGainMethod="fixed",meanRxGain=1.5, rxSensitivityMethod="None", meanRxSensitivity=0, namer = txPowerNamer):
     """
     Utility function to generate a set of actors given some boundary parameters.
 
-    By default, selects txPower, txGain, rxSensitivity (aka rxPower) from a fixed value, but can be set to 'gaussian' to select from a Gaussian (Normal) distribution instead.
+    By default, selects txPower, txGain, rxGain (aka rxPower) from a fixed value, but can be set to 'gaussian' to select from a Gaussian (Normal) distribution instead.
 
     Limitations:
     - Sets all actor speed to a static speed (meanSpeed) rather than selecting from a distribution
@@ -401,8 +407,10 @@ def generateActors(actorCount, meanSpeed, txPowerMethod="fixed", meanTxPower=13,
         meanTxPower:            float (default: 13) The mean TxPower to select the TxPower from
         txGainMethod:           str (default: 'fixed') The method used to select each actor's TxGain. Can be 'gaussian'.
         meanTxGain:             float (default 1.5) The mean TxGain to select the TxGain from
-        rxSensitivityMethod:    str (default: 'fixed') The method used to select each actor's RxSensitivity (aka RxPower). Can be 'gaussian'.
-        meanRxSensitivity:      float (default 1.5) The mean RxPower / sensitivity to select the RxPower from
+        rxGainMethod:           str (default: 'fixed') The method used to select each actor's RxGain. Can be 'gaussian'.
+        meanRxGain:             float (default 1.5) The mean RxGain to select the RxGain from
+        rxSensitivityMethod:    str (default None) The method to use to select receive sensitivity. Can be 'gaussian' or 'fixed'. If 'None' then the receiver sensitivity is not taken into account.
+        meanRxSensitivity:      float The receiver sensitivity. Required if rxSensitivityMethod is not 'None' (the default).
         namer:                  function(Actor) (default txPowerNamer()) The device model namer function
 
     Returns:
@@ -425,6 +433,7 @@ def generateActors(actorCount, meanSpeed, txPowerMethod="fixed", meanTxPower=13,
         # Two choices: Fixed or Gaussian
         txPower = meanTxPower
         txGain = meanTxGain
+        rxGain = meanRxGain
         rxSensitivity = meanRxSensitivity
         
         if txPowerMethod == "gaussian":
@@ -441,16 +450,21 @@ def generateActors(actorCount, meanSpeed, txPowerMethod="fixed", meanTxPower=13,
             # regularise txGain to an approx power accurate to 0.5 dBm
             txGain = math.floor(txGain*2)/2 # Normalise to nearest 0.5 dBm
         
+        if rxGainMethod == "gaussian":
+            rxGain = rng.normal(meanRxGain, 2)
+            if rxGain < 0.0:
+                rxGain = 0.0
+            # regularise rxGain to an approx power accurate to 0.5 dBm
+            rxGain = math.floor(rxGain*2)/2 # Normalise to nearest 0.5 dBm
+        
+        if rxSensitivityMethod == "None":
+            rxSensitivity = None
         if rxSensitivityMethod == "gaussian":
-            rxSensitivity = rng.normal(meanRxSensitivity, 2)
-            if rxSensitivity < 0.0:
-                rxSensitivity = 0.0
-            # regularise rxSensitivity to an approx power accurate to 0.5 dBm
-            rxSensitivity = math.floor(rxSensitivity*2)/2 # Normalise to nearest 0.5 dBm
+            rxSensitivity = rng.normal(meanRxSensitivity, 4) # rx Sensitivity are generally quite large around -96 dBm, same order of magnitude as txPower
 
         # Create a device model name from this txPower
         # deviceModel = f"model{txPower:03d}"
-        newActor = Actor(i + 1, txPower, txGain, rxSensitivity)
+        newActor = Actor(i + 1, txPower, txGain, rxGain, sensitivity=rxSensitivity)
         newActor.setPosition(x,y)
         newActor.setVelocity(angle,speed)
         namer(newActor)
